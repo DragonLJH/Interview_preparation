@@ -32,35 +32,65 @@ class MyPromise {
         this[state] = cState
         this[value] = data
         this[callbacks].forEach((item) => {
-            if (this[state] == FULFILLED) item.onfulfilled(data)
-            if (this[state] == REJECTED) item.onrejected(data)
+            if (Object.prototype.toString.call(onfulfilled) == "[object Function]") {
+                if (this[state] == FULFILLED) {
+                    try {
+                        resolve(onfulfilled(this[value]))
+                    } catch (error) {
+                        reject(error)
+                    }
+                }
+            } else {
+                resolve(this[value])
+            }
+            if (Object.prototype.toString.call(onrejected) == "[object Function]") {
+                if (this[state] == REJECTED) {
+                    try {
+                        reject(onrejected(this[value]))
+                    } catch (error) {
+                        reject(error)
+                    }
+                }
+            } else {
+                reject(this[value])
+            }
         })
     }
     then(onfulfilled, onrejected) {
         return new MyPromise((resolve, reject) => {
-            const callback = {
-                onfulfilled: (data) => resolve(onfulfilled(data)),
-                onrejected: (reason) => reject(onrejected(reason)),
-            }
-
             if (Object.prototype.toString.call(onfulfilled) == "[object Function]") {
                 if (this[state] == FULFILLED) {
-                    return resolve(onfulfilled(this[value]))
+                    try {
+                        resolve(onfulfilled(this[value]))
+                    } catch (error) {
+                        reject(error)
+                    }
                 }
+            } else {
+                resolve(this[value])
             }
             if (Object.prototype.toString.call(onrejected) == "[object Function]") {
                 if (this[state] == REJECTED) {
-                    return reject(onrejected(this[value]))
+                    try {
+                        reject(onrejected(this[value]))
+                    } catch (error) {
+                        reject(error)
+                    }
                 }
+            } else {
+                reject(this[value])
             }
             if (this[state] == PENDING) {
-                this[callbacks].push(callback)
+                this[callbacks].push({
+                    resolve,
+                    reject,
+                    onfulfilled,
+                    onrejected
+                })
             }
         })
-
     }
 }
-
 
 
 
@@ -68,20 +98,43 @@ class MyPromise {
 // executor: (resolve: (value: any) => void, reject: (reason?: any) => void) => void
 // then(onfulfilled?: ((value: any) => any) | null | undefined, onrejected?: ((reason: any) => PromiseLike<never>) | null | undefined): Promise<any>
 const p = new Promise((resolve, reject) => {
-    setTimeout(() => {
-            resolve(1)
-        }, 3000)
-        // resolve(1)
+    // setTimeout(() => {
+    //     reject(1)
+    // }, 1000)
+
+    throw new Error('1');
+    // resolve(1)
 })
-console.log(p.then((value) => {
-    return "pThen:" + value
-}))
+p.then((value) => {
+    console.log("p-0:", value)
+    throw new Error('p-err');
+}, (err) => {
+    console.log("p-0-err:", err)
+    throw new Error('p-err1');
+}).then((value) => {
+    console.log("p-1:", value)
+}, (err) => {
+    console.log("p-1-err:", err)
+})
 const p1 = new MyPromise((resolve, reject) => {
-    setTimeout(() => {
-            resolve(1)
-        }, 3000)
-        // resolve(1)
+    // setTimeout(() => {
+    //     reject(1)
+    // }, 1000)
+
+    throw new Error('1');
+    // resolve(1)
 })
-console.log(p1.then((value) => {
-    return "p1Then:" + value
-}))
+
+
+
+p1.then((value) => {
+    console.log("p1-0:", value)
+    throw new Error('p1-err');
+}, (err) => {
+    console.log("p1-0-err:", err)
+    throw new Error('p1-err1');
+}).then((value) => {
+    console.log("p1-1:", value)
+}, (err) => {
+    console.log("p1-1-err:", err)
+})

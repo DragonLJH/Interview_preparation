@@ -1,21 +1,18 @@
-### promise-series
-#### MyPromise
-1. class MyPromise
-2. 实现构造函数 constructor ，定义 私有属性 （state状态 = 'pending'，value值 = undefined ）
-3. 传入参数executor，executor是函数需要两个参数（resolve，reject）
-4. 私有属性 （state状态，value值）的值由（resolve，reject）的方法修改，state状态一旦改变,就不会再变,任何时候都可以得到这个结果。
-5. 捕获同步异常，异常捕获，调用 reject。(异步异常捕获不了，state状态不改变)
-6. 常量优化
-```
 const PENDING = 'pending'
 const FULFILLED = 'fulfilled'
 const REJECTED = 'rejected'
 const state = Symbol('state')
 const value = Symbol('value')
 const changeState = Symbol('changeState')
+const callbacks = Symbol('callbacks')
+const run = Symbol('run')
+const runOne = Symbol('runOne')
 class MyPromise {
+
+
     [state] = PENDING;
     [value] = void 0;
+    [callbacks] = []
     constructor(executor) {
         const resolve = (data) => {
             this[changeState](FULFILLED, data)
@@ -34,30 +31,9 @@ class MyPromise {
         if (this[state] !== PENDING) return
         this[state] = cState
         this[value] = data
-    }
-}
-```
-#### then
-1. then 方法，接收两个可选参数 onfulfilled, onrejected
-2. 判断传入参数 onfulfilled, onrejected的类型是否为Function（函数） ，返回一个新的 Promise 对象
-3. （同步）根据 state 的状态返回新的MyPromise
-4. （异步）state （PENDING）状态，新增回调方法组（callbacks），在改变状态方法下执行回调方法组
-5. （异步）优化，新增 run 方法，在状态改变的时候触发，调用then方法且状态不为PENDING时触发。
-6. 代码优化，抽出相同代码。
-```
-···
-const callbacks = Symbol('callbacks')
-const run = Symbol('run')
-const runOne = Symbol('runOne')
-···
-···
-    [callbacks] = []
-···
-···
-    [changeState](cState, data) {
-        ···
         this[run]()
     }
+
     [runOne](callback, resolve, reject) {
         if (Object.prototype.toString.call(callback) !== "[object Function]") {
             const target = this[state] == FULFILLED ? resolve : reject
@@ -70,6 +46,7 @@ const runOne = Symbol('runOne')
             reject(err)
         }
     }
+
     [run]() {
         if (this[state] === PENDING) return
         this[callbacks].forEach((item) => {
@@ -81,7 +58,7 @@ const runOne = Symbol('runOne')
             }
         })
     }
-···
+
     then(onfulfilled, onrejected) {
         return new MyPromise((resolve, reject) => {
             this[callbacks].push({
@@ -92,18 +69,50 @@ const runOne = Symbol('runOne')
             })
             this[run]()
         })
+
     }
-```
+}
+
+// executor: (resolve: (value: any) => void, reject: (reason?: any) => void) => void
+// then(onfulfilled?: ((value: any) => any) | null | undefined, onrejected?: ((reason: any) => PromiseLike<never>) | null | undefined): Promise<any>
+const p = new Promise((resolve, reject) => {
+    // setTimeout(() => {
+    //     reject(1)
+    // }, 1000)
+
+    throw new Error('1');
+    // resolve(1)
+})
+p.then((value) => {
+    console.log("p-0:", value)
+    throw new Error('p-err');
+}, (err) => {
+    console.log("p-0-err:", err)
+    throw new Error('p-err1');
+}).then((value) => {
+    console.log("p-1:", value)
+}, (err) => {
+    console.log("p-1-err:", err)
+})
+const p1 = new MyPromise((resolve, reject) => {
+    // setTimeout(() => {
+    //     reject(1)
+    // }, 1000)
+
+    throw new Error('1');
+    // resolve(1)
+})
 
 
 
-
-
-
-
-
-
-
-
-
-
+p1.then((value) => {
+    console.log("p1-0:", value)
+    throw new Error('p1-err');
+}, (err) => {
+    console.log("p1-0-err:", err)
+    throw new Error('p1-err1');
+}).then((value) => {
+    console.log("p1-1:", value)
+}, (err) => {
+    console.log("p1-1-err:", err)
+})

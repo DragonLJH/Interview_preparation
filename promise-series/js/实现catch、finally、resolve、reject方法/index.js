@@ -1,21 +1,20 @@
-### promise-series
-#### MyPromise
-1. class MyPromise
-2. 实现构造函数 constructor ，定义 私有属性 （state状态 = 'pending'，value值 = undefined ）
-3. 传入参数executor，executor是函数需要两个参数（resolve，reject）
-4. 私有属性 （state状态，value值）的值由（resolve，reject）的方法修改，state状态一旦改变,就不会再变,任何时候都可以得到这个结果。
-5. 捕获同步异常，异常捕获，调用 reject。(异步异常捕获不了，state状态不改变)
-6. 常量优化
-```
 const PENDING = 'pending'
 const FULFILLED = 'fulfilled'
 const REJECTED = 'rejected'
 const state = Symbol('state')
 const value = Symbol('value')
 const changeState = Symbol('changeState')
+const callbacks = Symbol('callbacks')
+const run = Symbol('run')
+const runOne = Symbol('runOne')
+const isPromiseLike = Symbol('isPromiseLike')
+const runMutation = Symbol('runMutation')
 class MyPromise {
+
+
     [state] = PENDING;
     [value] = void 0;
+    [callbacks] = []
     constructor(executor) {
         const resolve = (data) => {
             this[changeState](FULFILLED, data)
@@ -30,42 +29,13 @@ class MyPromise {
         }
     }
 
-    [changeState](cState, data) {
-        if (this[state] !== PENDING) return
-        this[state] = cState
-        this[value] = data
-    }
-}
-```
-#### then
-1. then 方法，接收两个可选参数 onfulfilled, onrejected
-2. 判断传入参数 onfulfilled, onrejected ，返回一个新的 Promise 对象
-> * 非 Function 类型
-> * Function 类型
-> * Promise 类型
-3. （同步）根据 state 的状态返回新的 Promise 对象
-4. （异步）state （PENDING）状态，新增回调方法组（callbacks），在改变状态方法下执行回调方法组
-5. （异步）优化，新增 run 方法，在状态改变的时候触发，调用then方法且状态不为PENDING时触发。
-6. 代码优化，抽出相同代码。
-7. 进入微队列执行
-```
-···
-const callbacks = Symbol('callbacks')
-const run = Symbol('run')
-const runOne = Symbol('runOne')
-const isPromiseLike = Symbol('isPromiseLike')
-const runMutation = Symbol('runMutation')
-···
-···
-    [callbacks] = []
-···
-···
     [isPromiseLike](target) {
         if (target !== null && (typeof target == 'object' || typeof target == 'function')) {
             return typeof target.then == 'function'
         }
         return false
     }
+
     [runMutation](func) {
         // if (typeof process == 'object' || typeof process.nextTick == 'function') {
         //     process.nextTick(func)
@@ -81,9 +51,12 @@ const runMutation = Symbol('runMutation')
     }
 
     [changeState](cState, data) {
-        ···
+        if (this[state] !== PENDING) return
+        this[state] = cState
+        this[value] = data
         this[run]()
     }
+
     [runOne](callback, resolve, reject) {
         this[runMutation](() => {
             if (Object.prototype.toString.call(callback) !== "[object Function]") {
@@ -105,6 +78,7 @@ const runMutation = Symbol('runMutation')
         })
 
     }
+
     [run]() {
         if (this[state] === PENDING) return
         this[callbacks].forEach((item) => {
@@ -116,7 +90,7 @@ const runMutation = Symbol('runMutation')
             }
         })
     }
-···
+
     then(onfulfilled, onrejected) {
         return new MyPromise((resolve, reject) => {
             this[callbacks].push({
@@ -127,20 +101,12 @@ const runMutation = Symbol('runMutation')
             })
             this[run]()
         })
-    }
-```
+    };
 
-
-#### 实现catch、finally、resolve、reject方法
-1. catch
-2. finally
-3. resolve
-4. reject
-```
-···
     catch (onrejected) {
         return this.then(null, onrejected)
-    }; 
+    };
+
     finally(onFinally) {
         return this.then((value) => {
             onFinally()
@@ -149,7 +115,8 @@ const runMutation = Symbol('runMutation')
             onFinally()
             throw err
         })
-    }; 
+    };
+
     static resolve(data) {
         let _resolve, _reject
         const p = new MyPromise((resolve, reject) => {
@@ -162,29 +129,19 @@ const runMutation = Symbol('runMutation')
             _resolve(data)
         }
         return p
-    } 
+    }
     static reject(data) {
         return new MyPromise((resolve, reject) => {
             reject(data)
         })
     }
-···
-```
 
 
 
 
+}
 
 
 
-
-
-
-
-
-
-
-
-
-
-
+// executor: (resolve: (value: any) => void, reject: (reason?: any) => void) => void
+// then(onfulfilled?: ((value: any) => any) | null | undefined, onrejected?: ((reason: any) => isPromiseLike<never>) | null | undefined): Promise<any>
